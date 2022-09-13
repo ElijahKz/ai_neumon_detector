@@ -1,0 +1,7 @@
+flask
+Pillow
+redis
+tensorflow
+keras
+opencv_python
+scikit-image
