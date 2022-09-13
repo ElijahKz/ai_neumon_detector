@@ -14,10 +14,11 @@ Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con u
 
 ¿Cómo correr este repositorio?
 <hr/>
-Instala docker en tu máquina. Luego instala docker compose.<br/>
+Instala docker en tu máquina. Luego instala docker compose de la siguiente forma:.<br/>
 *sudo apt-get update<br/>
 *sudo apt-get install docker-compose-plugin<br/>
-Ejecuta docker compose up. Y listo! <br/>
+Clona la carpeta de este repositorio y luego ejecuta el siguiente commando.<br/>
+<strong>docker compose up</strong>. Y listo! <br/>
 Obtendrás un mensaje como el siguiente.
 <p>
 flask-web-1    |  * Debug mode: off<br/>
