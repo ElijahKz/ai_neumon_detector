@@ -10,10 +10,10 @@ Neumonía Viral
 
 Sin Neumonía
 
-Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con un mapa de calor las regiones relevantes de la imagen de entrada.
-Diseño
+Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con un mapa de calor las regiones relevantes de la imagen de entrada.<br/>
+*Diseño
 <hr/>
-<img src="https://i.ibb.co/7R6s79F/design.png" alt="design" width="50%" height="50%">
+<img src="https://i.ibb.co/7R6s79F/design.png" alt="design" left="50%" width="50%" height="50%">
 
 ¿Cómo correr este repositorio?
 <hr/>
