@@ -2,7 +2,7 @@
 
 
 Hola! Bienvenido a la herramienta para la detección rápida de neumonía
-Deep Learning aplicado en el procesamiento de imágenes radiográficas de tórax en formato DICOM con el fin de clasificarlas en 3 categorías diferentes:
+Deep Learning aplicado en el procesamiento de imágenes radiográficas de tórax en formato jpeg con el fin de clasificarlas en 3 categorías diferentes:
 <hr/>
 Neumonía Bacteriana
 
@@ -11,6 +11,9 @@ Neumonía Viral
 Sin Neumonía
 
 Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con un mapa de calor las regiones relevantes de la imagen de entrada.
+Diseño
+<hr/>
+<img src="https://ibb.co/dLz8nhy" alt="design" width="50%" height="50%">
 
 ¿Cómo correr este repositorio?
 <hr/>
