@@ -13,7 +13,7 @@ Sin Neumonía
 Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con un mapa de calor las regiones relevantes de la imagen de entrada.
 Diseño
 <hr/>
-<img src="https://ibb.co/dLz8nhy" alt="design" width="50%" height="50%">
+<img src="https://i.ibb.co/7R6s79F/design.png" alt="design" width="50%" height="50%">
 
 ¿Cómo correr este repositorio?
 <hr/>
