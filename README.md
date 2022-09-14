@@ -12,11 +12,13 @@ Sin Neumonía
 
 Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con un mapa de calor las regiones relevantes de la imagen de entrada.<br/>
 <br/>
-#*Diseño
+
+# Diseño
+
 <hr/>
 <img src="https://i.ibb.co/7R6s79F/design.png" style="margin-left:25%;" alt="design" width="50%" height="50%">
 
-#¿Cómo correr este repositorio?
+# ¿Cómo correr este repositorio?
 <hr/>
 Instala docker en tu máquina. Luego instala docker compose de la siguiente forma:.<br/>
 *sudo apt-get update<br/>
