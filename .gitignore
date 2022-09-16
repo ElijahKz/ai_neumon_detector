@@ -1,1 +1,5 @@
 backend/Inference/WilhemNet_86.h5
+backend/Inference/__pycache__
+backend/HeatMapping/__pycache__
+backend/Preprocessing/__pycache__
+__pycache__

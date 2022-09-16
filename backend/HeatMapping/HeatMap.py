@@ -4,142 +4,123 @@ import backend.Inference.ModelInference as inference
 from tensorflow.keras import backend as K
 import tensorflow as tf
 from backend.Preprocessing import ImgPreprocessing 
+from tensorflow.keras.models import Model
 
-"""
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.experimental.output_all_intermediates(True)
+def GradCam(model, img_array, layer_name, eps=1e-8):
+    '''
+    Creates a grad-cam heatmap given a model and a layer name contained with that model
+    
 
-"""
-
-from skimage import transform
-from PIL import ImageTk, Image
-
-
-def get_img_array(img_path, size):
-    # `img` is a PIL image of size 299x299
-    img = tf.keras.preprocessing.image.load_img(img_path, target_size=size)
-    # `array` is a float32 Numpy array of shape (299, 299, 3)
-    array = tf.keras.preprocessing.image.img_to_array(img)
-    # We add a dimension to transform our array into a "batch"
-    # of size (1, 299, 299, 3)
-    array = np.expand_dims(array, axis=0)
-    return array
+    Args:
+      model: tf model
+      img_array: (img_width x img_width) numpy array
+      layer_name: str
 
 
-def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None):
-    # First, we create a model that maps the input image to the activations
-    # of the last conv layer as well as the output predictions
-    grad_model = tf.keras.models.Model(
-        [model.inputs], [model.get_layer(last_conv_layer_name).output, model.output]
-    )
+    Returns 
+      uint8 numpy array with shape (img_height, img_width)
 
-    # Then, we compute the gradient of the top predicted class for our input image
-    # with respect to the activations of the last conv layer
+    '''
+
+    gradModel = Model(
+			inputs=[model.inputs],
+			outputs=[model.get_layer(layer_name).output,
+				model.output])
+    
     with tf.GradientTape() as tape:
-        last_conv_layer_output, preds = grad_model(img_array)
-        if pred_index is None:
-            pred_index = tf.argmax(preds[0])
-        class_channel = preds[:, pred_index]
-
-    # This is the gradient of the output neuron (top predicted or chosen)
-    # with regard to the output feature map of the last conv layer
-    grads = tape.gradient(class_channel, last_conv_layer_output)
-
-    # This is a vector where each entry is the mean intensity of the gradient
-    # over a specific feature map channel
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-    # We multiply each channel in the feature map array
-    # by "how important this channel is" with regard to the top predicted class
-    # then sum all the channels to obtain the heatmap class activation
-    last_conv_layer_output = last_conv_layer_output[0]
-    heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-
-    # For visualization purpose, we will also normalize the heatmap between 0 & 1
-    heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
-    return heatmap.numpy()
-
-def save_and_display_gradcam(img_path, heatmap, cam_path='static/cam.jpg', alpha=0.4):
-    # Load the original image
-    #img = keras.preprocessing.image.load_img(img_path)
-    #img = keras.preprocessing.image.img_to_array(img)
+			# cast the image tensor to a float-32 data type, pass the
+			# image through the gradient model, and grab the loss
+			# associated with the specific class index
+      inputs = tf.cast(img_array, tf.float32)
+      (convOutputs, predictions) = gradModel(inputs)
+      loss = predictions[:, 0]
+		# use automatic differentiation to compute the gradients
+    grads = tape.gradient(loss, convOutputs)
     
-    img = ImgPreprocessing.preprocess(img_path)
-    """img_array_export = np.asarray(img)
-    img2show = Image.fromarray(img_array_export)
-    cv2.imwrite('static/img.jpg', img2show)"""
+    # compute the guided gradients
+    castConvOutputs = tf.cast(convOutputs > 0, "float32")
+    castGrads = tf.cast(grads > 0, "float32")
+    guidedGrads = castConvOutputs * castGrads * grads
+		# the convolution and guided gradients have a batch dimension
+		# (which we don't need) so let's grab the volume itself and
+		# discard the batch
+    convOutputs = convOutputs[0]
+    guidedGrads = guidedGrads[0]
+    # compute the average of the gradient values, and using them
+		# as weights, compute the ponderation of the filters with
+		# respect to the weights
+    weights = tf.reduce_mean(guidedGrads, axis=(0, 1))
+    cam = tf.reduce_sum(tf.multiply(weights, convOutputs), axis=-1)
+  
+    # grab the spatial dimensions of the input image and resize
+		# the output class activation map to match the input image
+		# dimensions
+    (w, h) = (512, 512)
+    heatmap = cv2.resize(cam.numpy(), (w, h))
+		# normalize the heatmap such that all values lie in the range
+		# [0, 1], scale the resulting values to the range [0, 255],
+		# and then convert to an unsigned 8-bit integer
+    numer = heatmap - np.min(heatmap)
+    denom = (heatmap.max() - heatmap.min()) + eps
+    heatmap = numer / denom
+    # heatmap = (heatmap * 255).astype("uint8")
+		# return the resulting heatmap to the calling function
+    return heatmap
 
 
+def sigmoid(x, a, b, c):
+    return c / (1 + np.exp(-a * (x-b)))
+
+def superimpose(img_bgr, cam, thresh, emphasize=False):
     
-    #img = inference.preprocess(img)
-    # Rescale heatmap to a range 0-255
-    heatmap = np.uint8(255 * heatmap)
-
-    # Use jet colormap to colorize heatmap
-    jet = cm.get_cmap("jet")
-
-    # Use RGB values of the colormap
-    jet_colors = jet(np.arange(256))[:, :3]
-    jet_heatmap = jet_colors[heatmap]
-
-    # Create an image with RGB colorized heatmap
-    jet_heatmap = tf.keras.preprocessing.image.array_to_img(jet_heatmap)
-    jet_heatmap = jet_heatmap.resize((img.shape[1], img.shape[0]))
-    jet_heatmap =  tf.keras.preprocessing.image.img_to_array(jet_heatmap)
-
-    # Superimpose the heatmap on original image
-    superimposed_img = jet_heatmap * alpha + img
-    """superimposed_img = np.array(superimposed_img, dtype='uint8')
-    superimposed_img = cv2.resize(superimposed_img, (512, 512))"""
+    '''
+    Superimposes a grad-cam heatmap onto an image for model interpretation and visualization.
     
-    #superimposed_img = transform.resize(superimposed_img, (superimposed_img.shape[1], superimposed_img.shape[2]))
-    #print(superimposed_img.shape[1])
-    #print(superimposed_img.shape[2])
-    superimposed_img = superimposed_img.reshape((superimposed_img.shape[1],superimposed_img.shape[2], 3))
-    #arr_ = np.squeeze(superimposed_img)
-    
-    #superimposed_img = np.expand_dims(superimposed_img, axis=0)
-    #superimposed_img = np.expand_dims(superimposed_img, axis=0)
-    superimposed_img = tf.keras.preprocessing.image.array_to_img(superimposed_img)
-    
-    #superimposed_img = np.squeeze(superimposed_img)
-    
-    # Save the superimposed image
-    superimposed_img.save(cam_path)
 
+    Args:
+      image: (img_width x img_height x 3) numpy array
+      grad-cam heatmap: (img_width x img_width) numpy array
+      threshold: float
+      emphasize: boolean
 
+    Returns 
+      uint8 numpy array with shape (img_height, img_width, 3)
 
-def get_heatMap(img_path):
+    '''
+    heatmap = cv2.resize(cam, (512, 512))
     
-    
-    img = ImgPreprocessing.preprocess(img_path)
-    model = inference.load_prediction_model()
-
-    
-    preds = model.predict(img)
-    argmax = np.argmax(preds[0])
-    output = model.output[:, argmax]
-    last_conv_layer = model.get_layer("conv10_thisone")
-    grads = K.gradients(output, last_conv_layer.output)[0]
-    pooled_grads = K.mean(grads, axis=(0, 1, 2))
-    iterate = K.function([model.input], [pooled_grads, last_conv_layer.output[0]])
-    pooled_grads_value, conv_layer_output_value = iterate(iter(img))
-
-    for filters in range(64):
-        conv_layer_output_value[:, :, filters] *= pooled_grads_value[filters]
-    # creating the heatmap
-    heatmap = np.mean(conv_layer_output_value, axis=-1)
-    heatmap = np.maximum(heatmap, 0)  # ReLU
-    heatmap /= np.max(heatmap)  # normalize
-    heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[2]))
+    if emphasize:
+        heatmap = sigmoid(heatmap, 50, thresh, 1)
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    img = np.uint8(255 * img)
-    img2 = cv2.resize(img, (512, 512))
-    hif = 0.8
-    transparency = heatmap * hif
-    transparency = transparency.astype(np.uint8)
-    superimposed_img = cv2.add(transparency, img2)
-    superimposed_img = superimposed_img.astype(np.uint8)
-    return superimposed_img[:, :, ::-1]
+    
+    hif = .8
+    superimposed_img = heatmap * hif + img_bgr
+    superimposed_img = np.minimum(superimposed_img, 255.0).astype(np.uint8)  # scale 0 to 255  
+    superimposed_img_rgb = cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB)
+
+    cv2.imwrite('static/heatmap.jpeg', superimposed_img_rgb)
+    "Now we are going to return the path of that heatmap"
+    superimposed_img_rgb_path = 'static/heatmap.jpeg'
+    return superimposed_img_rgb_path
+
+
+def reading_folder_imgFor_grad_cam(path, IMG_SIZE ):
+    data_df = []
+    img = cv2.imread(path, cv2.IMREAD_COLOR)
+    img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
+    img = clahe.apply(img)
+    img = img / 255
+    img = np.expand_dims(img, axis=-1)
+    img = np.expand_dims(img, axis=0)
+    data_df.append([np.array(img)])
+    return data_df
+
+def getting_arrimg_for_gradcam(path, IMG_SIZE):    
+  data_df = reading_folder_imgFor_grad_cam(path, IMG_SIZE)
+  X = np.array([i[0] for i in data_df]).reshape(-1, IMG_SIZE, IMG_SIZE, 1)  
+  return X
+
+    
