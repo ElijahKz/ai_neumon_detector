@@ -6,9 +6,6 @@ import cv2
 
 
 
-#https://keras.io/examples/vision/grad_cam/
-
-
 
 
 def load_prediction_model():
@@ -16,10 +13,10 @@ def load_prediction_model():
     model_cnn.make_predict_function()
     return model_cnn
 ###------------------------------------------------------------------------------------------------------------
-### Lectura de la ruta de la imágen
+### 
+## Predecir si la imagen corresponde a bacterial, virus, normal
 ###------------------------------------------------------------------------------------------------------------
 
-# Predecir si la imagen corresponde a bacterial, virus, normal
 def predict_label(img_path):
     #   1. call function to pre-process image: it returns image in batch format
     batch_array_img = ImgPreprocessing.preprocess(img_path)
@@ -37,11 +34,13 @@ def predict_label(img_path):
         label = "viral"
     #   3. call function to generate Grad-CAM: it returns an image with a superimposed heatmap
   
-    X = HeatMap.getting_arrimg_for_gradcam(img_path, 512)
+
     layer_name = 'conv10_thisone'
-    img = X[0]
-    grad_cam= HeatMap.GradCam(model,np.expand_dims(img, axis=0),layer_name)    
-    grad_cam_superimposed = HeatMap.superimpose(img, grad_cam, 0.5, emphasize=True)    
+    # Remove last layer's softmax    
+    model.layers[-1].activation = None
+    # Generate class activation heatmap
+    heatmap = HeatMap.make_gradcam_heatmap(batch_array_img, model, layer_name)   
+    grad_cam_superimposed = HeatMap.save_and_display_gradcam(img_path, heatmap)
 
     return label , grad_cam_superimposed, proba
     
